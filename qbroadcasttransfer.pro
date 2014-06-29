@@ -20,4 +20,6 @@ HEADERS += \
 OTHER_FILES += \
 		qml/server.qml
 
-LIBS += Ws2_32.lib
+win32 {
+  LIBS += Ws2_32.lib
+}

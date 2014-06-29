@@ -11,6 +11,7 @@
 #include "protocol.h"
 class QTcpSocket;
 class QUdpSocket;
+class ServerConnectionHandler;
 
 
 class Server : public QObject
