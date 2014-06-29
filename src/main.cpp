@@ -19,7 +19,7 @@ int mainServer(QGuiApplication *app)
   view->rootContext()->setContextProperty("serverLogic", serverLogic);
   view->rootContext()->setContextProperty("server", serverLogic->server());
   view->rootContext()->setContextProperty("serverModel", serverLogic->serverModel());
-  view->setSource(QUrl::fromLocalFile("qml/qbroadcasttransfer/server.qml"));
+  view->setSource(QUrl("qrc:/qml/server.qml"));
   view->showNormal();
 
   // TEST

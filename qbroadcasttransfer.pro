@@ -18,8 +18,11 @@ HEADERS += \
     src/serverlogic.h
 
 OTHER_FILES += \
-		qml/server.qml
+    qml/server.qml
 
 win32 {
-  LIBS += Ws2_32.lib
+    LIBS += Ws2_32.lib
 }
+
+RESOURCES += \
+    res.qrc
