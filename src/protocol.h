@@ -20,6 +20,7 @@ static const quint8 CPFILELIST = 1;
 static const quint8 DGMAGICBIT = 16;
 static const quint8 DGHELLO = 1;
 static const quint8 DGDATA = 3;
+static const quint8 DGDATAREQ = 4;
 
 class FileInfo
 {

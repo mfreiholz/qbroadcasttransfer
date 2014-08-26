@@ -1,7 +1,5 @@
 #include <QtGui/QGuiApplication>
-#include <QQmlApplicationEngine>
-#include <QQuickView>
-#include <QQmlContext>
+
 #include "server.h"
 #include "serverlogic.h"
 #include "client.h"
@@ -11,20 +9,14 @@ int mainServer(QGuiApplication *app)
   // Start server.
   ServerLogic *serverLogic = new ServerLogic(app);
   if (!serverLogic->init()) {
-    return 100;
+    return 1;
   }
 
-  QQuickView *view = new QQuickView();
-  view->setResizeMode(QQuickView::SizeRootObjectToView);
-  view->rootContext()->setContextProperty("serverLogic", serverLogic);
-  view->rootContext()->setContextProperty("server", serverLogic->server());
-  view->rootContext()->setContextProperty("serverModel", serverLogic->serverModel());
-  view->setSource(QUrl("qrc:/qml/server.qml"));
-  view->showNormal();
-
-  // TEST
+  // Start client.
   Client *client = new Client(app);
-  client->init();
+  if (!client->init()) {
+    return 2;
+  }
 
   return 0;
 }

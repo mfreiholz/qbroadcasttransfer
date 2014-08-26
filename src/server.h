@@ -3,10 +3,14 @@
 
 #include <QObject>
 #include <QList>
+#include <QHash>
+#include <QSet>
 #include <QByteArray>
 #include <QTcpServer>
 #include <QAbstractSocket>
 #include <QAbstractListModel>
+#include <QRunnable>
+#include <QThreadPool>
 #include "api.h"
 #include "protocol.h"
 class QTcpSocket;
@@ -31,16 +35,20 @@ public:
 public slots:
   void disconnectFromClients();
   void broadcastHello();
+  void broadcastFiles();
   void registerFileList(const QList<FileInfo> &files);
 
 private slots:
   void onNewConnection();
+  void onReadPendingDatagram();
 
 private:
   QTcpServer *_tcpServer;
   QUdpSocket *_dataSocket;
   QList<ServerConnectionHandler*> _connections;
   QList<FileInfo> _files;
+  QThreadPool _pool;
+  QHash<quint32,QSet<quint64> > _requestedFileParts;
 };
 Q_DECLARE_METATYPE(Server*)
 
@@ -64,6 +72,22 @@ private:
   QByteArray _buffer;
 };
 Q_DECLARE_METATYPE(ServerConnectionHandler*)
+
+
+class ServerFileBroadcastTask : public QObject, public QRunnable
+{
+  Q_OBJECT
+
+signals:
+  void bytesWritten(quint32 fileId, quint64 writtenBytes, quint64 totalBytes);
+
+public:
+  ServerFileBroadcastTask(const FileInfo &info, QObject *parent = 0);
+  virtual void run();
+
+private:
+  FileInfo _info;
+};
 
 
 class ServerModel : public QAbstractListModel

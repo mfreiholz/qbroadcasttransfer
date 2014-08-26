@@ -8,6 +8,7 @@
 #endif
 #include <QTcpSocket>
 #include <QUdpSocket>
+#include <QFile>
 #include "server.h"
 #include "protocol.h"
 
@@ -24,6 +25,7 @@ Server::Server(QObject *parent) :
   connect(_tcpServer, SIGNAL(newConnection()), SLOT(onNewConnection()));
 
   _dataSocket = new QUdpSocket(this);
+  connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
 }
 
 bool Server::init()
@@ -58,6 +60,14 @@ void Server::broadcastHello()
   out << DGHELLO;
   out << _tcpServer->serverPort();
   _dataSocket->writeDatagram(datagram, QHostAddress::Broadcast, UDPPORTCLIENT);
+}
+
+void Server::broadcastFiles()
+{
+  foreach (const FileInfo &info, _files) {
+    ServerFileBroadcastTask *task = new ServerFileBroadcastTask(info, this);
+    _pool.start(task);
+  }
 }
 
 void Server::registerFileList(const QList<FileInfo> &files)
@@ -101,6 +111,39 @@ void Server::onNewConnection()
   }
 }
 
+void Server::onReadPendingDatagram()
+{
+  while (_dataSocket->hasPendingDatagrams()) {
+    QByteArray datagram;
+    QHostAddress sender;
+    quint16 senderPort;
+    datagram.resize(_dataSocket->pendingDatagramSize());
+    _dataSocket->readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
+    qDebug() << "Datagram: " + datagram;
+
+    // Process datagram.
+    QDataStream in(datagram);
+
+    quint8 magic = 0;
+    in >> magic;
+    if (magic != DGMAGICBIT)
+      continue;
+
+    quint8 type;
+    in >> type;
+
+    switch (type) {
+      case DGDATAREQ:
+        quint32 fileId;
+        in >> fileId;
+        quint64 fileDataOffset;
+        in >> fileDataOffset;
+        _requestedFileParts[fileId].insert(fileDataOffset);
+        break;
+    }
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // ServerConnectionHandler
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,6 +169,37 @@ void ServerConnectionHandler::onReadyRead()
 {
   QByteArray data = _socket->readAll();
   //_buffer.append(data);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ServerFileBroadcastTask
+///////////////////////////////////////////////////////////////////////////////
+
+ServerFileBroadcastTask::ServerFileBroadcastTask(const FileInfo &info, QObject *parent) :
+  QObject(parent),
+  QRunnable(),
+  _info(info)
+{
+}
+
+void ServerFileBroadcastTask::run()
+{
+  QUdpSocket socket;
+  QFile f(_info.path);
+  if (!f.open(QIODevice::ReadOnly)) {
+    return;
+  }
+  quint32 index = 0;
+  while (!f.atEnd()) {
+    QByteArray datagram;
+    QDataStream out(&datagram, QIODevice::WriteOnly);
+    out << _info.id;
+    out << index;
+    out << f.read(400);
+    if (socket.writeDatagram(datagram, QHostAddress::Broadcast, UDPPORTCLIENT) > 0)
+      emit bytesWritten(_info.id, index * 400, _info.size);
+  }
+  f.close();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
