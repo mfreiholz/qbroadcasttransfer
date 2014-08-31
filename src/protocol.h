@@ -4,6 +4,7 @@
 #include <QtGlobal>
 #include <QDataStream>
 #include <QString>
+#include <QQueue>
 #include "api.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -54,5 +55,42 @@ static const quint16 TCPPORTSERVER = 15777;
 ///////////////////////////////////////////////////////////////////////////////
 
 static const quint16 UDPPORTCLIENT = 17666;
+
+///////////////////////////////////////////////////////////////////////////////
+// TCP Protocol
+///////////////////////////////////////////////////////////////////////////////
+
+namespace TCP {
+
+static const quint32 MAGIC = 0x00001337;
+
+struct Request
+{
+  struct Header
+  {
+    quint32 correlationId;
+    quint32 size;
+  };
+  Header header;
+  QByteArray body;
+};
+
+class ProtocolHandler
+{
+public:
+  explicit ProtocolHandler();
+  virtual ~ProtocolHandler();
+  void append(const QByteArray &data);
+  Request* next();
+
+  QByteArray serialize(const Request &request);
+
+private:
+  QByteArray _buffer;
+  Request *_request;
+  QQueue<Request*> _requests;
+};
+
+}  // End of TCP namespace.
 
 #endif // PROTOCOL_H

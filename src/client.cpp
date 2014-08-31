@@ -15,6 +15,11 @@ Client::Client(QObject *parent) :
   connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
 }
 
+Client::~Client()
+{
+
+}
+
 bool Client::init()
 {
   bool error = false;

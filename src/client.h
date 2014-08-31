@@ -10,8 +10,10 @@ class QUdpSocket;
 class Client : public QObject
 {
   Q_OBJECT
+
 public:
   explicit Client(QObject *parent = 0);
+  virtual ~Client();
   bool init();
 
 private slots:

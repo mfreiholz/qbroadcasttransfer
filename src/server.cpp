@@ -19,16 +19,23 @@
 Server::Server(QObject *parent) :
   QObject(parent)
 {
-  qRegisterMetaType<ServerConnectionHandler*>("ServerConnectionHandler*");
+  qRegisterMetaType<ServerClientConnectionHandler*>("ServerClientConnectionHandler*");
 
   _tcpServer = new QTcpServer(this);
-  connect(_tcpServer, SIGNAL(newConnection()), SLOT(onNewConnection()));
+  connect(_tcpServer, SIGNAL(newConnection()), SLOT(onClientConnected()));
 
   _dataSocket = new QUdpSocket(this);
   connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
 }
 
-bool Server::init()
+Server::~Server()
+{
+  shutdown();
+  delete _tcpServer;
+  delete _dataSocket;
+}
+
+bool Server::startup()
 {
   bool error = false;
   if (!_tcpServer->listen(QHostAddress::Any, TCPPORTSERVER)) {
@@ -44,10 +51,26 @@ bool Server::init()
   return !error;
 }
 
+bool Server::shutdown()
+{
+  _tcpServer->close();
+  _dataSocket->close();
+  while (!_connections.isEmpty()) {
+    ServerClientConnectionHandler *handler = _connections.takeLast();
+    delete handler;
+  }
+  return true;
+}
+
+bool Server::isStarted()
+{
+  return _tcpServer->isListening() && _dataSocket->state() == QAbstractSocket::BoundState;
+}
+
 void Server::disconnectFromClients()
 {
   while (!_connections.isEmpty()) {
-    ServerConnectionHandler *handler = _connections.takeLast();
+    ServerClientConnectionHandler *handler = _connections.takeLast();
     handler->_socket->disconnectFromHost();
   }
 }
@@ -92,23 +115,32 @@ void Server::registerFileList(const QList<FileInfo> &files)
   size -= sizeof(quint32);
   out << size;
 
-  foreach (ServerConnectionHandler *handler, _connections) {
+  foreach (ServerClientConnectionHandler *handler, _connections) {
     handler->_socket->write(data);
     handler->_socket->flush();
   }
   _files = files;
 }
 
-void Server::onNewConnection()
+void Server::onClientConnected()
 {
   while (_tcpServer->hasPendingConnections()) {
     QTcpSocket *socket = _tcpServer->nextPendingConnection();
     const int val = 1;
     ::setsockopt(socket->socketDescriptor(), IPPROTO_TCP, TCP_NODELAY, (char*)&val, sizeof(val));
-    ServerConnectionHandler *handler = new ServerConnectionHandler(this, socket);
+    ServerClientConnectionHandler *handler = new ServerClientConnectionHandler(socket, this);
+    connect(handler, SIGNAL(disconnected()), SLOT(onClientDisconnected()));
     _connections.append(handler);
     emit clientConnected(handler);
   }
+}
+
+void Server::onClientDisconnected()
+{
+  ServerClientConnectionHandler *handler = qobject_cast<ServerClientConnectionHandler*>(sender());
+  _connections.removeAll(handler);
+  handler->deleteLater();
+  emit clientDisconnected(handler);
 }
 
 void Server::onReadPendingDatagram()
@@ -145,30 +177,46 @@ void Server::onReadPendingDatagram()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// ServerConnectionHandler
+// ServerClientConnectionHandler
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerConnectionHandler::ServerConnectionHandler(Server *server, QTcpSocket *socket) :
-  QObject(server),
-  _server(server),
+ServerClientConnectionHandler::ServerClientConnectionHandler(QTcpSocket *socket, QObject *parent) :
+  QObject(parent),
   _socket(socket)
 {
-  connect(_socket, SIGNAL(disconnected()), SLOT(onDisconnected()));
+  onStateChanged(socket->state());
+  connect(_socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), SLOT(onStateChanged(QAbstractSocket::SocketState)));
   connect(_socket, SIGNAL(readyRead()), SLOT(onReadyRead()));
 }
 
-void ServerConnectionHandler::onDisconnected()
+ServerClientConnectionHandler::~ServerClientConnectionHandler()
 {
-  deleteLater();
-  _socket->close();
-  _server->_connections.removeAll(this);
-  emit _server->clientDisconnected(this);
+  delete _socket;
 }
 
-void ServerConnectionHandler::onReadyRead()
+void ServerClientConnectionHandler::onStateChanged(QAbstractSocket::SocketState state)
 {
-  QByteArray data = _socket->readAll();
-  //_buffer.append(data);
+  switch (state) {
+    case QAbstractSocket::ConnectedState:
+      break;
+    case QAbstractSocket::UnconnectedState:
+      emit disconnected();
+      break;
+  }
+}
+
+void ServerClientConnectionHandler::onReadyRead()
+{
+  qint64 available = 0;
+  while ((available = _socket->bytesAvailable()) > 0) {
+    QByteArray data = _socket->read(available);
+    _protocol.append(data);
+  }
+  TCP::Request *request = 0;
+  while ((request = _protocol.next()) != 0) {
+    // ...
+    delete request;
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -207,11 +255,35 @@ void ServerFileBroadcastTask::run()
 ///////////////////////////////////////////////////////////////////////////////
 
 ServerModel::ServerModel(Server *server)
-  : QAbstractListModel(server)
+  : QAbstractTableModel(server)
 {
   _server = server;
-  connect(_server, SIGNAL(clientConnected(ServerConnectionHandler*)), SLOT(onServerChanged()));
-  connect(_server, SIGNAL(clientDisconnected(ServerConnectionHandler*)), SLOT(onServerChanged()));
+  connect(_server, SIGNAL(clientConnected(ServerClientConnectionHandler*)), SLOT(onServerChanged()));
+  connect(_server, SIGNAL(clientDisconnected(ServerClientConnectionHandler*)), SLOT(onServerChanged()));
+
+  _columnHeaders.insert(RemoteAddressColumn, tr("Address"));
+  _columnHeaders.insert(RemoteTcpPortColumn, tr("TCP Port"));
+}
+
+int ServerModel::columnCount(const QModelIndex &parent) const
+{
+  Q_UNUSED(parent)
+  return _columnHeaders.size();
+}
+
+QVariant ServerModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  QVariant vt;
+  switch (role) {
+    case Qt::DisplayRole:
+      switch (orientation) {
+        case Qt::Horizontal:
+          vt = _columnHeaders.value(section);
+          break;
+      }
+      break;
+  }
+  return vt;
 }
 
 int ServerModel::rowCount(const QModelIndex &parent) const
@@ -226,9 +298,18 @@ QVariant ServerModel::data(const QModelIndex &index, int role) const
   if (!index.isValid() || index.row() >= _server->_connections.size())
     return vt;
 
-  ServerConnectionHandler *handler = _server->_connections[index.row()];
+  ServerClientConnectionHandler *handler = _server->_connections[index.row()];
   switch (role) {
     case Qt::DisplayRole:
+      switch (index.column()) {
+        case RemoteAddressColumn:
+          vt = handler->_socket->peerAddress().toString();
+          break;
+        case RemoteTcpPortColumn:
+          vt = handler->_socket->peerPort();
+          break;
+      }
+      break;
     case RemoteAddressRole:
       vt = handler->_socket->peerAddress().toString();
       break;

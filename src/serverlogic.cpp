@@ -12,7 +12,7 @@ ServerLogic::ServerLogic(QObject *parent) :
 
 bool ServerLogic::init()
 {
-  return _server->init();
+  return _server->startup();
 }
 
 Server *ServerLogic::server() const
