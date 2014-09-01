@@ -143,6 +143,9 @@ ClientServerConnectionHandler::ClientServerConnectionHandler(QObject *parent) :
 ClientServerConnectionHandler::~ClientServerConnectionHandler()
 {
   delete _socket;
+  if (_keepAliveTimerId >= 0) {
+    killTimer(_keepAliveTimerId);
+  }
 }
 
 void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, quint16 port)
@@ -169,6 +172,7 @@ void ClientServerConnectionHandler::onStateChanged(QAbstractSocket::SocketState 
       break;
     case QAbstractSocket::UnconnectedState:
       killTimer(_keepAliveTimerId);
+      _keepAliveTimerId = -1;
       emit disconnected();
       break;
   }
@@ -184,7 +188,7 @@ void ClientServerConnectionHandler::onReadyRead()
 
   TCP::Request *request = 0;
   while ((request = _protocol.next()) != 0) {
-    qDebug() << "New request from server.";
+    qDebug() << "New request from server." << request->body;
     delete request;
   }
 }

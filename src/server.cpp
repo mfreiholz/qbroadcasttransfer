@@ -9,6 +9,7 @@
 #include <QTcpSocket>
 #include <QUdpSocket>
 #include <QFile>
+#include <QTimerEvent>
 #include "server.h"
 #include "protocol.h"
 
@@ -182,7 +183,8 @@ void Server::onReadPendingDatagram()
 
 ServerClientConnectionHandler::ServerClientConnectionHandler(QTcpSocket *socket, QObject *parent) :
   QObject(parent),
-  _socket(socket)
+  _socket(socket),
+  _keepAliveTimerId(-1)
 {
   onStateChanged(socket->state());
   connect(_socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), SLOT(onStateChanged(QAbstractSocket::SocketState)));
@@ -192,14 +194,32 @@ ServerClientConnectionHandler::ServerClientConnectionHandler(QTcpSocket *socket,
 ServerClientConnectionHandler::~ServerClientConnectionHandler()
 {
   delete _socket;
+  if (_keepAliveTimerId >= 0) {
+    killTimer(_keepAliveTimerId);
+    _keepAliveTimerId = -1;
+  }
+}
+
+void ServerClientConnectionHandler::timerEvent(QTimerEvent *ev)
+{
+  if (ev->timerId() == _keepAliveTimerId) {
+    QByteArray body = "keep-alive";
+    TCP::Request req;
+    req.header.size = body.size();
+    req.body = body;
+    _socket->write(_protocol.serialize(req));
+  }
 }
 
 void ServerClientConnectionHandler::onStateChanged(QAbstractSocket::SocketState state)
 {
   switch (state) {
     case QAbstractSocket::ConnectedState:
+      _keepAliveTimerId = startTimer(1500);
       break;
     case QAbstractSocket::UnconnectedState:
+      killTimer(_keepAliveTimerId);
+      _keepAliveTimerId = -1;
       emit disconnected();
       break;
   }

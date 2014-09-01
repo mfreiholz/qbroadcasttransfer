@@ -67,6 +67,9 @@ public:
   explicit ServerClientConnectionHandler(QTcpSocket *socket, QObject *parent = 0);
   virtual ~ServerClientConnectionHandler();
 
+protected:
+  virtual void timerEvent(QTimerEvent *ev);
+
 private slots:
   void onStateChanged(QAbstractSocket::SocketState state);
   void onReadyRead();
@@ -77,6 +80,7 @@ signals:
 private:
   QTcpSocket *_socket;
   TCP::ProtocolHandler _protocol;
+  int _keepAliveTimerId;
 };
 Q_DECLARE_METATYPE(ServerClientConnectionHandler*)
 
