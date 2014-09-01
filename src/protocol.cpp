@@ -78,6 +78,9 @@ void ProtocolHandler::append(const QByteArray &data)
 
 Request* ProtocolHandler::next()
 {
+  if (_requests.isEmpty()) {
+    return 0;
+  }
   return _requests.dequeue();
 }
 

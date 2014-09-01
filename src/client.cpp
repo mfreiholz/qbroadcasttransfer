@@ -1,15 +1,16 @@
 #include <QTcpSocket>
 #include <QUdpSocket>
 #include <QDataStream>
+#include <QTimerEvent>
 #include "client.h"
 #include "protocol.h"
 
 Client::Client(QObject *parent) :
-  QObject(parent)
+  QObject(parent),
+  _serverConnection(0)
 {
-  _socket = new QTcpSocket(this);
-  _packetSize = -1;
-  connect(_socket, SIGNAL(readyRead()), SLOT(onReadyRead()));
+  _serverConnection = new ClientServerConnectionHandler(this);
+  //connect(_serverConnection, SIGNAL(disconnected()), SLOT());
 
   _dataSocket = new QUdpSocket(this);
   connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
@@ -17,30 +18,16 @@ Client::Client(QObject *parent) :
 
 Client::~Client()
 {
-
+  delete _serverConnection;
+  delete _dataSocket;
 }
 
-bool Client::init()
+bool Client::listen()
 {
-  bool error = false;
-  if (!_dataSocket->bind(UDPPORTCLIENT, QUdpSocket::ShareAddress)) {
-    error = true;
-  }
-  if (error) {
-    _dataSocket->close();
-  }
-  return !error;
+  return _dataSocket->bind(UDPPORTCLIENT, QUdpSocket::ShareAddress);
 }
 
-void Client::connectTo(const QHostAddress &address, quint16 port)
-{
-  if (_socket->isOpen()) {
-    _socket->close();
-  }
-  _socket->connectToHost(address, port);
-}
-
-void Client::onReadyRead()
+/*void Client::onReadyRead()
 {
   while (_socket->bytesAvailable() > 0) {
     if (_packetSize == -1) {
@@ -98,7 +85,7 @@ void Client::onReadyRead()
     _packetSize = -1;
     _buffer.clear();
   }
-}
+}*/
 
 void Client::onReadPendingDatagram()
 {
@@ -122,10 +109,10 @@ void Client::onReadPendingDatagram()
 
     switch (type) {
       case DGHELLO:
-        if (_socket->state() == QAbstractSocket::UnconnectedState) {
+        if (_serverConnection->getSocket()->state() == QAbstractSocket::UnconnectedState) {
           quint16 tcpPort;
           in >> tcpPort;
-          connectTo(sender, tcpPort);
+          _serverConnection->connectToHost(sender, tcpPort);
         }
         break;
       case DGDATA:
@@ -137,5 +124,67 @@ void Client::onReadPendingDatagram()
         in >> fileData;
         break;
     }
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ClientServerConnectionHandler
+///////////////////////////////////////////////////////////////////////////////
+
+ClientServerConnectionHandler::ClientServerConnectionHandler(QObject *parent) :
+  QObject(parent),
+  _socket(new QTcpSocket(this)),
+  _keepAliveTimerId(-1)
+{
+  connect(_socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), SLOT(onStateChanged(QAbstractSocket::SocketState)));
+  connect(_socket, SIGNAL(readyRead()), SLOT(onReadyRead()));
+}
+
+ClientServerConnectionHandler::~ClientServerConnectionHandler()
+{
+  delete _socket;
+}
+
+void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, quint16 port)
+{
+  _socket->connectToHost(address, port);
+}
+
+void ClientServerConnectionHandler::timerEvent(QTimerEvent *ev)
+{
+  if (ev->timerId() == _keepAliveTimerId) {
+    QByteArray body = "keep-alive";
+    TCP::Request req;
+    req.header.size = body.size();
+    req.body = body;
+    _socket->write(_protocol.serialize(req));
+  }
+}
+
+void ClientServerConnectionHandler::onStateChanged(QAbstractSocket::SocketState state)
+{
+  switch (state) {
+    case QAbstractSocket::ConnectedState:
+      _keepAliveTimerId = startTimer(1500);
+      break;
+    case QAbstractSocket::UnconnectedState:
+      killTimer(_keepAliveTimerId);
+      emit disconnected();
+      break;
+  }
+}
+
+void ClientServerConnectionHandler::onReadyRead()
+{
+  qint64 available = 0;
+  while ((available = _socket->bytesAvailable())) {
+    QByteArray data = _socket->read(available);
+    _protocol.append(data);
+  }
+
+  TCP::Request *request = 0;
+  while ((request = _protocol.next()) != 0) {
+    qDebug() << "New request from server.";
+    delete request;
   }
 }

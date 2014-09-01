@@ -20,7 +20,7 @@ int mainServer()
 int mainClient()
 {
   Client *client = new Client(0);
-  if (!client->init()) {
+  if (!client->listen()) {
     return 1;
   }
   return 0;

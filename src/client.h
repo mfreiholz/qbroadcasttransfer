@@ -4,8 +4,11 @@
 #include <QObject>
 #include <QByteArray>
 #include <QHostAddress>
+#include "protocol.h"
 class QTcpSocket;
 class QUdpSocket;
+class ClientServerConnectionHandler;
+
 
 class Client : public QObject
 {
@@ -14,18 +17,43 @@ class Client : public QObject
 public:
   explicit Client(QObject *parent = 0);
   virtual ~Client();
-  bool init();
+  bool listen();
 
 private slots:
-  void connectTo(const QHostAddress &address, quint16 port);
-  void onReadyRead();
   void onReadPendingDatagram();
 
 private:
-  QTcpSocket *_socket;
-  QByteArray _buffer;
-  qint32 _packetSize;
+  ClientServerConnectionHandler *_serverConnection;
   QUdpSocket *_dataSocket;
+};
+
+
+class ClientServerConnectionHandler : public QObject
+{
+  Q_OBJECT
+
+public:
+  explicit ClientServerConnectionHandler(QObject *parent = 0);
+  virtual ~ClientServerConnectionHandler();
+  QTcpSocket* getSocket() const { return _socket; }
+
+public slots:
+  void connectToHost(const QHostAddress &address, quint16 port);
+
+protected:
+  virtual void timerEvent(QTimerEvent *ev);
+
+private slots:
+  void onStateChanged(QAbstractSocket::SocketState state);
+  void onReadyRead();
+
+signals:
+  void disconnected();
+
+private:
+  QTcpSocket *_socket;
+  TCP::ProtocolHandler _protocol;
+  int _keepAliveTimerId;
 };
 
 #endif // CLIENT_H

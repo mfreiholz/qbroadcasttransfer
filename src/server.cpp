@@ -212,9 +212,10 @@ void ServerClientConnectionHandler::onReadyRead()
     QByteArray data = _socket->read(available);
     _protocol.append(data);
   }
+
   TCP::Request *request = 0;
   while ((request = _protocol.next()) != 0) {
-    // ...
+    qDebug() << "New request from client." << request->body;
     delete request;
   }
 }
