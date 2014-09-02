@@ -13,8 +13,8 @@
 
 // TCP
 
-static const quint8 CPMAGICBYTE = 15;
-static const quint8 CPFILELIST = 1;
+//static const quint8 CPMAGICBYTE = 15;
+//static const quint8 CPFILELIST = 1;
 
 // UDP
 
@@ -68,12 +68,27 @@ struct Request
 {
   struct Header
   {
+    enum Type { REQ, RESP };
+    Header() : type(REQ), correlationId(0), size(0) {}
+    quint32 type;
     quint32 correlationId;
     quint32 size;
   };
+
+  Request() : header(), body() {}
+  
+  void initResponseByRequest(const Request &request)
+  {
+    this->header = request.header;
+    this->header.size = 0;
+  }
+
   Header header;
   QByteArray body;
+
+  static const int REQUEST_SIZE = sizeof(quint32) + sizeof(quint32) + sizeof(quint32) + sizeof(quint32);
 };
+
 
 class ProtocolHandler
 {
@@ -82,8 +97,7 @@ public:
   virtual ~ProtocolHandler();
   void append(const QByteArray &data);
   Request* next();
-
-  QByteArray serialize(const Request &request);
+  QByteArray serialize(const Request &request) const;
 
 private:
   QByteArray _buffer;

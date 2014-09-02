@@ -96,7 +96,7 @@ void Server::broadcastFiles()
 
 void Server::registerFileList(const QList<FileInfo> &files)
 {
-  QByteArray data;
+  /*QByteArray data;
   QDataStream out(&data, QIODevice::WriteOnly);
   out << CPMAGICBYTE;
   out << (quint32) 0;
@@ -120,7 +120,7 @@ void Server::registerFileList(const QList<FileInfo> &files)
     handler->_socket->write(data);
     handler->_socket->flush();
   }
-  _files = files;
+  _files = files;*/
 }
 
 void Server::onClientConnected()

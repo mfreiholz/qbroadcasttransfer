@@ -150,9 +150,40 @@ void ClientServerConnectionHandler::onReadyRead()
 
   TCP::Request *request = 0;
   while ((request = _protocol.next()) != 0) {
-    qDebug() << "New request from server." << request->body;
+    switch (request->header.type) {
+      case TCP::Request::Header::REQ:
+        qDebug() << "New request from server." << request->body << request->header.correlationId;
+        processRequest(*request);
+        break;
+      case TCP::Request::Header::RESP:
+        qDebug() << "New response from server." << request->body << request->header.correlationId;
+        processRequest(*request);
+        break;
+    }
     delete request;
   }
+}
+
+void ClientServerConnectionHandler::processRequest(TCP::Request &request)
+{
+  QDataStream in(request.body);
+  QString action;
+  in >> action;
+  if (action == "filelist") {
+    processFileList(request, in);
+  }
+}
+
+void ClientServerConnectionHandler::processFileList(TCP::Request &request, QDataStream &in)
+{
+  // Parse file list.
+  // (TODO)
+
+  // Send response.
+  TCP::Request response;
+  response.initResponseByRequest(request);
+  const QByteArray ser = _protocol.serialize(request);
+  _socket->write(ser);
 }
 
 

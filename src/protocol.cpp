@@ -43,8 +43,7 @@ void ProtocolHandler::append(const QByteArray &data)
 
   // Create new header.
   if (!_request) {
-    const int headerSize = sizeof(quint32) + sizeof(quint32) + sizeof(quint32);
-    if (_buffer.size() < headerSize) {
+    if (_buffer.size() < Request::REQUEST_SIZE) {
       return;
     }
 
@@ -60,9 +59,10 @@ void ProtocolHandler::append(const QByteArray &data)
 
     // New request begin.
     _request = new Request();
+    in >> _request->header.type;
     in >> _request->header.correlationId;
     in >> _request->header.size;
-    _buffer.remove(0, headerSize);
+    _buffer.remove(0, Request::REQUEST_SIZE);
   }
 
   // Only continue, if the buffer contains the entire request body.
@@ -84,12 +84,13 @@ Request* ProtocolHandler::next()
   return _requests.dequeue();
 }
 
-QByteArray ProtocolHandler::serialize(const Request &request)
+QByteArray ProtocolHandler::serialize(const Request &request) const
 {
   QByteArray data;
   QDataStream out(&data, QIODevice::WriteOnly);
 
   out << MAGIC;
+  out << request.header.type;
   out << request.header.correlationId;
   out << request.header.size;
   out.writeRawData(request.body.constData(), request.body.size());
