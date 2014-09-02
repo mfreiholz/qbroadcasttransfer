@@ -2,7 +2,7 @@
 #include "server.h"
 #include "client.h"
 #include "gui/servercontrollerwidget.h"
-
+#include "gui/clientcontrollerwidget.h"
 
 int mainServer()
 {
@@ -12,6 +12,7 @@ int mainServer()
   }
 
   ServerControllerWidget *serverWidget = new ServerControllerWidget(server, 0);
+  serverWidget->setAttribute(Qt::WA_DeleteOnClose);
   serverWidget->show();
 
   return 0;
@@ -23,6 +24,11 @@ int mainClient()
   if (!client->listen()) {
     return 1;
   }
+
+  ClientControllerWidget *clientWidget = new ClientControllerWidget(client, 0);
+  clientWidget->setAttribute(Qt::WA_DeleteOnClose);
+  clientWidget->show();
+
   return 0;
 }
 

@@ -9,8 +9,11 @@ Client::Client(QObject *parent) :
   QObject(parent),
   _serverConnection(0)
 {
+  qRegisterMetaType<QHostAddress>("QHostAddress");
+
   _serverConnection = new ClientServerConnectionHandler(this);
-  //connect(_serverConnection, SIGNAL(disconnected()), SLOT());
+  connect(_serverConnection->getSocket(), SIGNAL(connected()), SIGNAL(serverConnected()));
+  connect(_serverConnection->getSocket(), SIGNAL(disconnected()), SIGNAL(serverDisconnected()));
 
   _dataSocket = new QUdpSocket(this);
   connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
@@ -24,68 +27,26 @@ Client::~Client()
 
 bool Client::listen()
 {
-  return _dataSocket->bind(UDPPORTCLIENT, QUdpSocket::ShareAddress);
+  if (_dataSocket->state() != QAbstractSocket::BoundState) {
+    return _dataSocket->bind(UDPPORTCLIENT, QUdpSocket::ShareAddress);
+  }
+  return false;
 }
 
-/*void Client::onReadyRead()
+void Client::close()
 {
-  while (_socket->bytesAvailable() > 0) {
-    if (_packetSize == -1) {
-      if (_socket->bytesAvailable() < 5) {
-        return;
-      }
-      QDataStream in(_socket);
+  _dataSocket->close();
+}
 
-      quint8 magicbyte;
-      in >> magicbyte;
-      if (magicbyte != CPMAGICBYTE) {
-        qDebug() << "Invalid magicbyte.";
-        _socket->disconnectFromHost();
-        return;
-      }
+const ClientServerConnectionHandler& Client::getServerConnection() const
+{
+  return *_serverConnection;
+}
 
-      quint32 length;
-      in >> length;
-      _packetSize = length;
-    }
-
-    // Read entire packet content into buffer.
-    if (_buffer.size() < _packetSize) {
-      QByteArray b = _socket->read(_packetSize - _buffer.size());
-      _buffer.append(b);
-    }
-    if (_buffer.size() != _packetSize) {
-      return;
-    }
-
-    // Process packet.
-    QDataStream in(_buffer);
-    quint8 type;
-    in >> type;
-    switch (type) {
-      case CPFILELIST: {
-        QList<FileInfo> fileInfos;
-        quint32 fileCount;
-        in >> fileCount;
-        for (quint32 i = 0; i < fileCount; ++i) {
-          FileInfo fi;
-          in >> fi.id;
-          in >> fi.path;
-          in >> fi.size;
-          in >> fi.partSize;
-          in >> fi.partCount;
-          fileInfos.append(fi);
-          qDebug() << fi.path;
-        }
-        break;
-      }
-    }
-
-    // End of current packet.
-    _packetSize = -1;
-    _buffer.clear();
-  }
-}*/
+void Client::connectToServer(const QHostAddress &address, quint16 port)
+{
+  _serverConnection->connectToHost(address, port);
+}
 
 void Client::onReadPendingDatagram()
 {
@@ -112,7 +73,8 @@ void Client::onReadPendingDatagram()
         if (_serverConnection->getSocket()->state() == QAbstractSocket::UnconnectedState) {
           quint16 tcpPort;
           in >> tcpPort;
-          _serverConnection->connectToHost(sender, tcpPort);
+          connectToServer(sender, tcpPort);
+          emit serverBroadcastReceived(sender, tcpPort);
         }
         break;
       case DGDATA:
@@ -192,3 +154,64 @@ void ClientServerConnectionHandler::onReadyRead()
     delete request;
   }
 }
+
+
+/*void Client::onReadyRead()
+{
+  while (_socket->bytesAvailable() > 0) {
+    if (_packetSize == -1) {
+      if (_socket->bytesAvailable() < 5) {
+        return;
+      }
+      QDataStream in(_socket);
+
+      quint8 magicbyte;
+      in >> magicbyte;
+      if (magicbyte != CPMAGICBYTE) {
+        qDebug() << "Invalid magicbyte.";
+        _socket->disconnectFromHost();
+        return;
+      }
+
+      quint32 length;
+      in >> length;
+      _packetSize = length;
+    }
+
+    // Read entire packet content into buffer.
+    if (_buffer.size() < _packetSize) {
+      QByteArray b = _socket->read(_packetSize - _buffer.size());
+      _buffer.append(b);
+    }
+    if (_buffer.size() != _packetSize) {
+      return;
+    }
+
+    // Process packet.
+    QDataStream in(_buffer);
+    quint8 type;
+    in >> type;
+    switch (type) {
+      case CPFILELIST: {
+        QList<FileInfo> fileInfos;
+        quint32 fileCount;
+        in >> fileCount;
+        for (quint32 i = 0; i < fileCount; ++i) {
+          FileInfo fi;
+          in >> fi.id;
+          in >> fi.path;
+          in >> fi.size;
+          in >> fi.partSize;
+          in >> fi.partCount;
+          fileInfos.append(fi);
+          qDebug() << fi.path;
+        }
+        break;
+      }
+    }
+
+    // End of current packet.
+    _packetSize = -1;
+    _buffer.clear();
+  }
+}*/

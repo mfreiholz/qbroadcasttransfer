@@ -18,9 +18,19 @@ public:
   explicit Client(QObject *parent = 0);
   virtual ~Client();
   bool listen();
+  void close();
+  const ClientServerConnectionHandler& getServerConnection() const;
+
+public slots:
+  void connectToServer(const QHostAddress &address, quint16 port);
 
 private slots:
   void onReadPendingDatagram();
+
+signals:
+  void serverBroadcastReceived(const QHostAddress &address, quint16 port);
+  void serverConnected();
+  void serverDisconnected();
 
 private:
   ClientServerConnectionHandler *_serverConnection;

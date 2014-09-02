@@ -7,7 +7,8 @@ SOURCES += \
     src/protocol.cpp \
     src/client.cpp \
     src/serverlogic.cpp \
-    src/gui/servercontrollerwidget.cpp
+    src/gui/servercontrollerwidget.cpp \
+    src/gui/clientcontrollerwidget.cpp
 
 HEADERS += \
     src/server.h \
@@ -15,7 +16,8 @@ HEADERS += \
     src/protocol.h \
     src/client.h \
     src/serverlogic.h \
-    src/gui/servercontrollerwidget.h
+    src/gui/servercontrollerwidget.h \
+    src/gui/clientcontrollerwidget.h
 
 win32 {
     LIBS += Ws2_32.lib
@@ -25,4 +27,5 @@ RESOURCES += \
     res.qrc
 
 FORMS += \
-    src/gui/servercontrollerwidget.ui
+    src/gui/servercontrollerwidget.ui \
+    src/gui/clientcontrollerwidget.ui
