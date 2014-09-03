@@ -74,6 +74,9 @@ private slots:
   void onStateChanged(QAbstractSocket::SocketState state);
   void onReadyRead();
 
+private:
+  void processRequest(TCP::Request &request);
+
 signals:
   void disconnected();
 

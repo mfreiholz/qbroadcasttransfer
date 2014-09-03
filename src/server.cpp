@@ -235,8 +235,26 @@ void ServerClientConnectionHandler::onReadyRead()
 
   TCP::Request *request = 0;
   while ((request = _protocol.next()) != 0) {
-    qDebug() << "New request from client." << request->body;
+    switch (request->header.type) {
+    case TCP::Request::Header::REQ:
+      qDebug() << "New request from client." << request->body << request->header.correlationId;
+      processRequest(*request);
+      break;
+    case TCP::Request::Header::RESP:
+      qDebug() << "New response from client." << request->body << request->header.correlationId;
+      //processRequest(*request);
+      break;
+    }
     delete request;
+  }
+}
+
+void ServerClientConnectionHandler::processRequest(TCP::Request &request)
+{
+  QDataStream in(request.body);
+  QString action;
+  in >> action;
+  if (action == "") {
   }
 }
 
