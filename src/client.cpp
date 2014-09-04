@@ -118,10 +118,14 @@ void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, q
 void ClientServerConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    QByteArray body = "keep-alive";
+    qDebug() << QString("Request to server.");
+
+    QByteArray body;
+    QDataStream out(&body, QIODevice::WriteOnly);
+    out << QString("keep-alive");
+
     TCP::Request req;
-    req.header.size = body.size();
-    req.body = body;
+    req.setBody(body);
     _socket->write(_protocol.serialize(req));
   }
 }
@@ -152,12 +156,12 @@ void ClientServerConnectionHandler::onReadyRead()
   while ((request = _protocol.next()) != 0) {
     switch (request->header.type) {
       case TCP::Request::Header::REQ:
-        qDebug() << "New request from server." << request->body << request->header.correlationId;
+        qDebug() << QString("Request from server.");
         processRequest(*request);
         break;
       case TCP::Request::Header::RESP:
-        qDebug() << "New response from server." << request->body << request->header.correlationId;
-        processRequest(*request);
+        qDebug() << QString("Response from server.");
+        //processRequest(*request);
         break;
     }
     delete request;
@@ -169,7 +173,11 @@ void ClientServerConnectionHandler::processRequest(TCP::Request &request)
   QDataStream in(request.body);
   QString action;
   in >> action;
-  if (action == "filelist") {
+  if (action == "keep-alive") {
+    TCP::Request resp;
+    resp.initResponseByRequest(request);
+    _socket->write(_protocol.serialize(resp));
+  } else if (action == "filelist") {
     processFileList(request, in);
   }
 }

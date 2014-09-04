@@ -57,6 +57,15 @@ static const quint16 TCPPORTSERVER = 15777;
 static const quint16 UDPPORTCLIENT = 17666;
 
 ///////////////////////////////////////////////////////////////////////////////
+// UDP Protocol
+///////////////////////////////////////////////////////////////////////////////
+
+namespace UDP {
+
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
 // TCP Protocol
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -79,8 +88,15 @@ struct Request
   
   void initResponseByRequest(const Request &request)
   {
-    this->header = request.header;
+    this->header.type = Header::RESP;
+    this->header.correlationId = request.header.correlationId;
     this->header.size = 0;
+  }
+
+  void setBody(const QByteArray &bodyData)
+  {
+    this->body = bodyData;
+    this->header.size = bodyData.size();
   }
 
   Header header;

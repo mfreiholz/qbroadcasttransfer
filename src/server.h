@@ -76,6 +76,7 @@ private slots:
 
 private:
   void processRequest(TCP::Request &request);
+  void processResponse(TCP::Request &response);
 
 signals:
   void disconnected();

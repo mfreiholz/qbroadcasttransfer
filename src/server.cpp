@@ -203,10 +203,14 @@ ServerClientConnectionHandler::~ServerClientConnectionHandler()
 void ServerClientConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    QByteArray body = "keep-alive";
+    qDebug() << QString("Request to client.");
+
+    QByteArray body;
+    QDataStream out(&body, QIODevice::WriteOnly);
+    out << QString("keep-alive");
+
     TCP::Request req;
-    req.header.size = body.size();
-    req.body = body;
+    req.setBody(body);
     _socket->write(_protocol.serialize(req));
   }
 }
@@ -236,14 +240,14 @@ void ServerClientConnectionHandler::onReadyRead()
   TCP::Request *request = 0;
   while ((request = _protocol.next()) != 0) {
     switch (request->header.type) {
-    case TCP::Request::Header::REQ:
-      qDebug() << "New request from client." << request->body << request->header.correlationId;
-      processRequest(*request);
-      break;
-    case TCP::Request::Header::RESP:
-      qDebug() << "New response from client." << request->body << request->header.correlationId;
-      //processRequest(*request);
-      break;
+      case TCP::Request::Header::REQ:
+        qDebug() << QString("Request from client.");
+        processRequest(*request);
+        break;
+      case TCP::Request::Header::RESP:
+        qDebug() << QString("Response from client.");
+        processResponse(*request);
+        break;
     }
     delete request;
   }
@@ -254,8 +258,15 @@ void ServerClientConnectionHandler::processRequest(TCP::Request &request)
   QDataStream in(request.body);
   QString action;
   in >> action;
-  if (action == "") {
+  if (action == "keep-alive") {
+    TCP::Request resp;
+    resp.initResponseByRequest(request);
+    _socket->write(_protocol.serialize(resp));
   }
+}
+
+void ServerClientConnectionHandler::processResponse(TCP::Request &response)
+{
 }
 
 ///////////////////////////////////////////////////////////////////////////////
