@@ -150,6 +150,7 @@ void Server::onReadPendingDatagram()
     quint16 senderPort;
     datagram.resize(_dataSocket->pendingDatagramSize());
     _dataSocket->readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
+    
     qDebug() << "Datagram: " + datagram;
 
     // Process datagram.
@@ -200,11 +201,11 @@ ServerClientConnectionHandler::~ServerClientConnectionHandler()
 
 void ServerClientConnectionHandler::sendKeepAlive()
 {
-  qDebug() << "Send keep-alive to client.";
+  qDebug() << QString("Send /keepalive.");
 
   QByteArray body;
   QDataStream out(&body, QIODevice::WriteOnly);
-  out << QString("keep-alive");
+  out << QString("/keepalive");
 
   TCP::Request req;
   req.setBody(body);
@@ -213,7 +214,7 @@ void ServerClientConnectionHandler::sendKeepAlive()
 
 void ServerClientConnectionHandler::sendRegisterFile(const FileInfo &info)
 {
-  qDebug() << "Send /file/register to client.";
+  qDebug() << QString("Send /file/register => %1 %2").arg(info.id).arg(info.path);
 
   QByteArray body;
   QDataStream out(&body, QIODevice::WriteOnly);
@@ -227,7 +228,7 @@ void ServerClientConnectionHandler::sendRegisterFile(const FileInfo &info)
 
 void ServerClientConnectionHandler::sendUnregisterFile(FileInfo::fileid_t id)
 {
-  qDebug() << "Send /file/unregister to client.";
+  qDebug() << QString("Send /file/unregister => %1").arg(id);
 
   QByteArray body;
   QDataStream out(&body, QIODevice::WriteOnly);
@@ -242,7 +243,7 @@ void ServerClientConnectionHandler::sendUnregisterFile(FileInfo::fileid_t id)
 void ServerClientConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    //sendKeepAlive();
+    sendKeepAlive();
   }
 }
 
@@ -272,11 +273,9 @@ void ServerClientConnectionHandler::onReadyRead()
   while ((request = _protocol.next()) != 0) {
     switch (request->header.type) {
       case TCP::Request::Header::REQ:
-        qDebug() << QString("Request from client.");
         processRequest(*request);
         break;
       case TCP::Request::Header::RESP:
-        qDebug() << QString("Response from client.");
         processResponse(*request);
         break;
     }
@@ -289,15 +288,20 @@ void ServerClientConnectionHandler::processRequest(TCP::Request &request)
   QDataStream in(request.body);
   QString action;
   in >> action;
-  if (action == "keep-alive") {
-    TCP::Request resp;
-    resp.initResponseByRequest(request);
-    _socket->write(_protocol.serialize(resp));
+  if (action == "/keepalive") {
+    processKeepAlive(request, in);
   }
 }
 
 void ServerClientConnectionHandler::processResponse(TCP::Request &response)
 {
+}
+
+void ServerClientConnectionHandler::processKeepAlive(TCP::Request &request, QDataStream &in)
+{
+  TCP::Request response;
+  response.initResponseByRequest(request);
+  _socket->write(_protocol.serialize(response));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -399,14 +403,6 @@ QVariant ServerModel::data(const QModelIndex &index, int role) const
       break;
   }
   return vt;
-}
-
-QHash<int, QByteArray> ServerModel::roleNames() const
-{
-  QHash<int, QByteArray> roles;
-  roles[RemoteAddressRole] = "address";
-  roles[RemoteTcpPortRole] = "tcpport";
-  return roles;
 }
 
 void ServerModel::onServerChanged()

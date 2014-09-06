@@ -60,7 +60,8 @@ private slots:
 
 private:
   void processRequest(TCP::Request &request);
-  void processFileList(TCP::Request &request, QDataStream &in);
+  void processKeepAlive(TCP::Request &request, QDataStream &in);
+  void processFileRegister(TCP::Request &request, QDataStream &in);
 
 signals:
   void disconnected();

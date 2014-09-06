@@ -117,11 +117,11 @@ void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, q
 
 void ClientServerConnectionHandler::sendKeepAlive()
 {
-  qDebug() << "Send keep-alive to server.";
+  qDebug() << "Send /keepalive to server.";
 
   QByteArray body;
   QDataStream out(&body, QIODevice::WriteOnly);
-  out << QString("keep-alive");
+  out << QString("/keepalive");
 
   TCP::Request req;
   req.setBody(body);
@@ -131,7 +131,7 @@ void ClientServerConnectionHandler::sendKeepAlive()
 void ClientServerConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    //sendKeepAlive();
+    sendKeepAlive();
   }
 }
 
@@ -161,11 +161,9 @@ void ClientServerConnectionHandler::onReadyRead()
   while ((request = _protocol.next()) != 0) {
     switch (request->header.type) {
       case TCP::Request::Header::REQ:
-        qDebug() << QString("Request from server.");
         processRequest(*request);
         break;
       case TCP::Request::Header::RESP:
-        qDebug() << QString("Response from server.");
         //processRequest(*request);
         break;
     }
@@ -178,88 +176,28 @@ void ClientServerConnectionHandler::processRequest(TCP::Request &request)
   QDataStream in(request.body);
   QString action;
   in >> action;
-  if (action == "keep-alive") {
-    TCP::Request resp;
-    resp.initResponseByRequest(request);
-    _socket->write(_protocol.serialize(resp));
+  if (action == "/keepalive") {
+    processKeepAlive(request, in);
   } else if (action == "/file/register") {
-    FileInfo info;
-    in >> info;
-    qDebug() << QString("Register new file %1 %2").arg(info.id).arg(info.path);
-  } else if (action == "filelist") {
-    processFileList(request, in);
+    processFileRegister(request, in);
   }
 }
 
-void ClientServerConnectionHandler::processFileList(TCP::Request &request, QDataStream &in)
+void ClientServerConnectionHandler::processKeepAlive(TCP::Request &request, QDataStream &in)
 {
-  // Parse file list.
-  // (TODO)
-
-  // Send response.
   TCP::Request response;
   response.initResponseByRequest(request);
-  const QByteArray ser = _protocol.serialize(request);
-  _socket->write(ser);
+  _socket->write(_protocol.serialize(response));
 }
 
-
-/*void Client::onReadyRead()
+void ClientServerConnectionHandler::processFileRegister(TCP::Request &request, QDataStream &in)
 {
-  while (_socket->bytesAvailable() > 0) {
-    if (_packetSize == -1) {
-      if (_socket->bytesAvailable() < 5) {
-        return;
-      }
-      QDataStream in(_socket);
+  FileInfo info;
+  in >> info;
 
-      quint8 magicbyte;
-      in >> magicbyte;
-      if (magicbyte != CPMAGICBYTE) {
-        qDebug() << "Invalid magicbyte.";
-        _socket->disconnectFromHost();
-        return;
-      }
+  qDebug() << QString("Registered new file on client: %1 %2").arg(info.id).arg(info.path);
 
-      quint32 length;
-      in >> length;
-      _packetSize = length;
-    }
-
-    // Read entire packet content into buffer.
-    if (_buffer.size() < _packetSize) {
-      QByteArray b = _socket->read(_packetSize - _buffer.size());
-      _buffer.append(b);
-    }
-    if (_buffer.size() != _packetSize) {
-      return;
-    }
-
-    // Process packet.
-    QDataStream in(_buffer);
-    quint8 type;
-    in >> type;
-    switch (type) {
-      case CPFILELIST: {
-        QList<FileInfo> fileInfos;
-        quint32 fileCount;
-        in >> fileCount;
-        for (quint32 i = 0; i < fileCount; ++i) {
-          FileInfo fi;
-          in >> fi.id;
-          in >> fi.path;
-          in >> fi.size;
-          in >> fi.partSize;
-          in >> fi.partCount;
-          fileInfos.append(fi);
-          qDebug() << fi.path;
-        }
-        break;
-      }
-    }
-
-    // End of current packet.
-    _packetSize = -1;
-    _buffer.clear();
-  }
-}*/
+  TCP::Request response;
+  response.initResponseByRequest(request);
+  _socket->write(_protocol.serialize(response));
+}

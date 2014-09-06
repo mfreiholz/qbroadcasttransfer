@@ -86,6 +86,7 @@ private slots:
 private:
   void processRequest(TCP::Request &request);
   void processResponse(TCP::Request &response);
+  void processKeepAlive(TCP::Request &request, QDataStream &in);
 
 signals:
   void disconnected();
@@ -136,9 +137,6 @@ public:
 
   virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
   virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
-
-protected:
-  QHash<int, QByteArray> roleNames() const;
 
 private slots:
   void onServerChanged();
