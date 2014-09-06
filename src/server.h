@@ -21,8 +21,8 @@ class ServerClientConnectionHandler;
 class Server : public QObject
 {
   Q_OBJECT
-  friend class ServerClientConnectionHandler;
   friend class ServerModel;
+  friend class ServerFilesModel;
 
 public:
   explicit Server(QObject *parent = 0);
@@ -33,9 +33,11 @@ public:
 
 public slots:
   void disconnectFromClients();
+  void registerFile(const QString &filePath);
+  void unregisterFile(FileInfo::fileid_t id);
+
   void broadcastHello();
   void broadcastFiles();
-  void registerFileList(const QList<FileInfo> &files);
 
 private slots:
   void onClientConnected();
@@ -50,8 +52,10 @@ private:
   QTcpServer *_tcpServer;
   QUdpSocket *_dataSocket;
   QList<ServerClientConnectionHandler*> _connections;
-  QList<FileInfo> _files;
   QThreadPool _pool;
+
+  // Files.
+  QList<FileInfoPtr> _files;
   QHash<quint32,QSet<quint64> > _requestedFileParts;
 };
 Q_DECLARE_METATYPE(Server*)
@@ -66,6 +70,11 @@ class ServerClientConnectionHandler : public QObject
 public:
   explicit ServerClientConnectionHandler(QTcpSocket *socket, QObject *parent = 0);
   virtual ~ServerClientConnectionHandler();
+
+public slots:
+  void sendKeepAlive();
+  void sendRegisterFile(const FileInfo &info);
+  void sendUnregisterFile(FileInfo::fileid_t id);
 
 protected:
   virtual void timerEvent(QTimerEvent *ev);

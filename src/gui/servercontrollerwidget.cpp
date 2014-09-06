@@ -1,6 +1,7 @@
+#include <QTimer>
+#include <QFileDialog>
 #include "servercontrollerwidget.h"
 #include "../server.h"
-#include <QTimer>
 
 
 ServerControllerWidget::ServerControllerWidget(Server *server, QWidget *parent) :
@@ -12,6 +13,7 @@ ServerControllerWidget::ServerControllerWidget(Server *server, QWidget *parent) 
   _ui.clientsView->setModel(_serverModel);
   connect(_ui.searchClientsButton, SIGNAL(clicked()), SLOT(searchForClients()));
   connect(_ui.disconnectClientsButton, SIGNAL(clicked()), SLOT(disconnectClients()));
+  connect(_ui.addFilesButton, SIGNAL(clicked()), SLOT(onAddFilesButtonClicked()));
 
   QTimer::singleShot(1000, this, SLOT(searchForClients()));
 }
@@ -30,4 +32,12 @@ void ServerControllerWidget::searchForClients()
 void ServerControllerWidget::disconnectClients()
 {
   _server->disconnectFromClients();
+}
+
+void ServerControllerWidget::onAddFilesButtonClicked()
+{
+  QStringList files = QFileDialog::getOpenFileNames(this, "", QDir::homePath());
+  foreach (auto f, files) {
+    _server->registerFile(f);
+  }
 }

@@ -3,58 +3,24 @@
 
 #include <QtGlobal>
 #include <QDataStream>
+#include <QByteArray>
 #include <QString>
 #include <QQueue>
+#include <QSharedPointer>
 #include "api.h"
 
 ///////////////////////////////////////////////////////////////////////////////
-// Server and Client
+// Common
 ///////////////////////////////////////////////////////////////////////////////
 
-// TCP
-
-//static const quint8 CPMAGICBYTE = 15;
-//static const quint8 CPFILELIST = 1;
-
-// UDP
+static const quint16 UDPPORTSERVER = 15666;
+static const quint16 TCPPORTSERVER = 15777;
+static const quint16 UDPPORTCLIENT = 17666;
 
 static const quint8 DGMAGICBIT = 16;
 static const quint8 DGHELLO = 1;
 static const quint8 DGDATA = 3;
 static const quint8 DGDATAREQ = 4;
-
-class FileInfo
-{
-public:
-  quint32 id;
-  QString path;
-  quint64 size;
-  quint32 partSize;
-  quint32 partCount;
-  FileInfo() : id(0), size(0), partSize(0), partCount(0) {}
-  bool fromFile(const QString &filePath);
-};
-
-class FileData
-{
-public:
-  quint32 id;
-  quint32 index;
-  QByteArray data;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// Server side only
-///////////////////////////////////////////////////////////////////////////////
-
-static const quint16 UDPPORTSERVER = 15666;
-static const quint16 TCPPORTSERVER = 15777;
-
-///////////////////////////////////////////////////////////////////////////////
-// Client side only
-///////////////////////////////////////////////////////////////////////////////
-
-static const quint16 UDPPORTCLIENT = 17666;
 
 ///////////////////////////////////////////////////////////////////////////////
 // UDP Protocol
@@ -122,5 +88,39 @@ private:
 };
 
 }  // End of TCP namespace.
+
+///////////////////////////////////////////////////////////////////////////////
+// Network serializeable objects.
+///////////////////////////////////////////////////////////////////////////////
+
+class FileInfo
+{
+public:
+  typedef quint32 fileid_t;
+
+  FileInfo() : id(0), size(0), partSize(0), partCount(0) {}
+  bool fromFile(const QString &filePath);
+  quint32 id;
+  QString path;
+  quint64 size;
+  quint32 partSize;
+  quint32 partCount;
+};
+typedef QSharedPointer<FileInfo> FileInfoPtr;
+QDataStream& operator<<(QDataStream &out, const FileInfo &info);
+QDataStream& operator>>(QDataStream &in, FileInfo &info);
+
+
+class FileData
+{
+public:
+  quint32 id;
+  quint32 index;
+  QByteArray data;
+};
+typedef QSharedPointer<FileData> FileDataPtr;
+QDataStream& operator<<(QDataStream &out, const FileData &obj);
+QDataStream& operator>>(QDataStream &in, FileData &obj);
+
 
 #endif // PROTOCOL_H

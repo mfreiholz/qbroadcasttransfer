@@ -49,6 +49,7 @@ public:
 
 public slots:
   void connectToHost(const QHostAddress &address, quint16 port);
+  void sendKeepAlive();
 
 protected:
   virtual void timerEvent(QTimerEvent *ev);

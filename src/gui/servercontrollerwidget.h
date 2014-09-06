@@ -20,6 +20,9 @@ public slots:
   void searchForClients();
   void disconnectClients();
 
+private slots:
+  void onAddFilesButtonClicked();
+
 private:
   // User interface elements.
   Ui::ServerControllerWidget _ui;

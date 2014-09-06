@@ -76,6 +76,33 @@ void Server::disconnectFromClients()
   }
 }
 
+void Server::registerFile(const QString &filePath)
+{
+  FileInfoPtr fileInfo(new FileInfo());
+  if (!fileInfo->fromFile(filePath)) {
+    return;
+  }
+  _files.append(fileInfo);
+
+  foreach (auto conn, _connections) {
+    conn->sendRegisterFile(*fileInfo.data());
+  }
+}
+
+void Server::unregisterFile(FileInfo::fileid_t id)
+{
+  for (int i = 0; i < _files.size(); ++i) {
+    if (_files[i]->id == id) {
+      _files.removeAt(i);
+      break;
+    }
+  }
+
+  foreach (auto conn, _connections) {
+    conn->sendUnregisterFile(id);
+  }
+}
+
 void Server::broadcastHello()
 {
   QByteArray datagram;
@@ -88,39 +115,10 @@ void Server::broadcastHello()
 
 void Server::broadcastFiles()
 {
-  foreach (const FileInfo &info, _files) {
-    ServerFileBroadcastTask *task = new ServerFileBroadcastTask(info, this);
-    _pool.start(task);
-  }
-}
-
-void Server::registerFileList(const QList<FileInfo> &files)
-{
-  /*QByteArray data;
-  QDataStream out(&data, QIODevice::WriteOnly);
-  out << CPMAGICBYTE;
-  out << (quint32) 0;
-  out << CPFILELIST;
-  out << (quint32) files.size();
-
-  foreach (const FileInfo &fi, files) {
-    out << fi.id;
-    out << fi.path;
-    out << fi.size;
-    out << fi.partSize;
-    out << fi.partCount;
-  }
-  out.device()->seek(sizeof(CPMAGICBYTE));
-  quint32 size = data.size();
-  size -= sizeof(CPMAGICBYTE);
-  size -= sizeof(quint32);
-  out << size;
-
-  foreach (ServerClientConnectionHandler *handler, _connections) {
-    handler->_socket->write(data);
-    handler->_socket->flush();
-  }
-  _files = files;*/
+  //foreach (const FileInfo &info, _files) {
+  //  ServerFileBroadcastTask *task = new ServerFileBroadcastTask(info, this);
+  //  _pool.start(task);
+  //}
 }
 
 void Server::onClientConnected()
@@ -200,18 +198,51 @@ ServerClientConnectionHandler::~ServerClientConnectionHandler()
   }
 }
 
+void ServerClientConnectionHandler::sendKeepAlive()
+{
+  qDebug() << "Send keep-alive to client.";
+
+  QByteArray body;
+  QDataStream out(&body, QIODevice::WriteOnly);
+  out << QString("keep-alive");
+
+  TCP::Request req;
+  req.setBody(body);
+  _socket->write(_protocol.serialize(req));
+}
+
+void ServerClientConnectionHandler::sendRegisterFile(const FileInfo &info)
+{
+  qDebug() << "Send /file/register to client.";
+
+  QByteArray body;
+  QDataStream out(&body, QIODevice::WriteOnly);
+  out << QString("/file/register");
+  out << info;
+
+  TCP::Request req;
+  req.setBody(body);
+  _socket->write(_protocol.serialize(req));
+}
+
+void ServerClientConnectionHandler::sendUnregisterFile(FileInfo::fileid_t id)
+{
+  qDebug() << "Send /file/unregister to client.";
+
+  QByteArray body;
+  QDataStream out(&body, QIODevice::WriteOnly);
+  out << QString("/file/unregister");
+  out << id;
+
+  TCP::Request req;
+  req.setBody(body);
+  _socket->write(_protocol.serialize(req));
+}
+
 void ServerClientConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    qDebug() << QString("Request to client.");
-
-    QByteArray body;
-    QDataStream out(&body, QIODevice::WriteOnly);
-    out << QString("keep-alive");
-
-    TCP::Request req;
-    req.setBody(body);
-    _socket->write(_protocol.serialize(req));
+    //sendKeepAlive();
   }
 }
 

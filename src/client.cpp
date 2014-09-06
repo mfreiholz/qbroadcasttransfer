@@ -115,18 +115,23 @@ void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, q
   _socket->connectToHost(address, port);
 }
 
+void ClientServerConnectionHandler::sendKeepAlive()
+{
+  qDebug() << "Send keep-alive to server.";
+
+  QByteArray body;
+  QDataStream out(&body, QIODevice::WriteOnly);
+  out << QString("keep-alive");
+
+  TCP::Request req;
+  req.setBody(body);
+  _socket->write(_protocol.serialize(req));
+}
+
 void ClientServerConnectionHandler::timerEvent(QTimerEvent *ev)
 {
   if (ev->timerId() == _keepAliveTimerId) {
-    qDebug() << QString("Request to server.");
-
-    QByteArray body;
-    QDataStream out(&body, QIODevice::WriteOnly);
-    out << QString("keep-alive");
-
-    TCP::Request req;
-    req.setBody(body);
-    _socket->write(_protocol.serialize(req));
+    //sendKeepAlive();
   }
 }
 
@@ -147,7 +152,7 @@ void ClientServerConnectionHandler::onStateChanged(QAbstractSocket::SocketState 
 void ClientServerConnectionHandler::onReadyRead()
 {
   qint64 available = 0;
-  while ((available = _socket->bytesAvailable())) {
+  while ((available = _socket->bytesAvailable()) > 0) {
     QByteArray data = _socket->read(available);
     _protocol.append(data);
   }
@@ -177,6 +182,10 @@ void ClientServerConnectionHandler::processRequest(TCP::Request &request)
     TCP::Request resp;
     resp.initResponseByRequest(request);
     _socket->write(_protocol.serialize(resp));
+  } else if (action == "/file/register") {
+    FileInfo info;
+    in >> info;
+    qDebug() << QString("Register new file %1 %2").arg(info.id).arg(info.path);
   } else if (action == "filelist") {
     processFileList(request, in);
   }

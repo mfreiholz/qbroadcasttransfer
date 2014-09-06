@@ -29,17 +29,3 @@ QList<QUrl> ServerLogic::files() const
 {
   return _files;
 }
-
-void ServerLogic::setFiles(const QList<QUrl> &files)
-{
-  QList<FileInfo> fileInfos;
-  foreach (QUrl url, files) {
-    FileInfo info;
-    info.fromFile(url.toLocalFile());
-    fileInfos.append(info);
-  }
-  _server->registerFileList(fileInfos);
-
-  _files = files;
-  emit filesChanged();
-}

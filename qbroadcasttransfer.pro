@@ -6,7 +6,6 @@ SOURCES += \
     src/server.cpp \
     src/protocol.cpp \
     src/client.cpp \
-    src/serverlogic.cpp \
     src/gui/servercontrollerwidget.cpp \
     src/gui/clientcontrollerwidget.cpp
 
@@ -15,7 +14,6 @@ HEADERS += \
     src/api.h \
     src/protocol.h \
     src/client.h \
-    src/serverlogic.h \
     src/gui/servercontrollerwidget.h \
     src/gui/clientcontrollerwidget.h
 
