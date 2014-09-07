@@ -11,7 +11,7 @@ Client::Client(QObject *parent) :
 {
   qRegisterMetaType<QHostAddress>("QHostAddress");
 
-  _serverConnection = new ClientServerConnectionHandler(this);
+  _serverConnection = new ClientServerConnectionHandler(this, this);
   connect(_serverConnection->getSocket(), SIGNAL(connected()), SIGNAL(serverConnected()));
   connect(_serverConnection->getSocket(), SIGNAL(disconnected()), SIGNAL(serverDisconnected()));
 
@@ -93,8 +93,9 @@ void Client::onReadPendingDatagram()
 // ClientServerConnectionHandler
 ///////////////////////////////////////////////////////////////////////////////
 
-ClientServerConnectionHandler::ClientServerConnectionHandler(QObject *parent) :
+ClientServerConnectionHandler::ClientServerConnectionHandler(Client *client, QObject *parent) :
   QObject(parent),
+  _client(client),
   _socket(new QTcpSocket(this)),
   _keepAliveTimerId(-1)
 {
@@ -192,12 +193,15 @@ void ClientServerConnectionHandler::processKeepAlive(TCP::Request &request, QDat
 
 void ClientServerConnectionHandler::processFileRegister(TCP::Request &request, QDataStream &in)
 {
-  FileInfo info;
-  in >> info;
+  FileInfoPtr info(new FileInfo());
+  in >> *info.data();
 
-  qDebug() << QString("Registered new file on client: %1 %2").arg(info.id).arg(info.path);
+  qDebug() << QString("Registered new file on client: %1 %2").arg(info->id).arg(info->path);
 
   TCP::Request response;
   response.initResponseByRequest(request);
   _socket->write(_protocol.serialize(response));
+
+  _client->_files.append(info);
+  emit _client->filesChanged();
 }

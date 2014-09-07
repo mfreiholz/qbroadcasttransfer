@@ -13,6 +13,7 @@ class ClientServerConnectionHandler;
 class Client : public QObject
 {
   Q_OBJECT
+  friend class ClientServerConnectionHandler;
 
 public:
   explicit Client(QObject *parent = 0);
@@ -31,10 +32,14 @@ signals:
   void serverBroadcastReceived(const QHostAddress &address, quint16 port);
   void serverConnected();
   void serverDisconnected();
+  void filesChanged();
 
 private:
   ClientServerConnectionHandler *_serverConnection;
   QUdpSocket *_dataSocket;
+
+  // Files
+  QList<FileInfoPtr> _files;
 };
 
 
@@ -43,7 +48,7 @@ class ClientServerConnectionHandler : public QObject
   Q_OBJECT
 
 public:
-  explicit ClientServerConnectionHandler(QObject *parent = 0);
+  explicit ClientServerConnectionHandler(Client *client, QObject *parent = 0);
   virtual ~ClientServerConnectionHandler();
   QTcpSocket* getSocket() const { return _socket; }
 
@@ -67,6 +72,7 @@ signals:
   void disconnected();
 
 private:
+  Client *_client;
   QTcpSocket *_socket;
   TCP::ProtocolHandler _protocol;
   int _keepAliveTimerId;
