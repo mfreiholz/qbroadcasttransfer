@@ -196,12 +196,85 @@ void ClientServerConnectionHandler::processFileRegister(TCP::Request &request, Q
   FileInfoPtr info(new FileInfo());
   in >> *info.data();
 
+  _client->_files.append(info);
+  emit _client->filesChanged();
+
   qDebug() << QString("Registered new file on client: %1 %2").arg(info->id).arg(info->path);
 
   TCP::Request response;
   response.initResponseByRequest(request);
   _socket->write(_protocol.serialize(response));
+}
 
-  _client->_files.append(info);
+void ClientServerConnectionHandler::processFileUnregister(TCP::Request &request, QDataStream &in)
+{
+  FileInfo::fileid_t id;
+  in >> id;
+
+  for (int i = 0; i < _client->_files.size(); ++i) {
+    FileInfoPtr fi = _client->_files.at(i);
+    if (fi->id == id) {
+      _client->_files.removeAt(i);
+      break;
+    }
+  }
   emit _client->filesChanged();
+
+  qDebug() << QString("Unregistered file on client: %1").arg(id);
+
+  TCP::Request response;
+  response.initResponseByRequest(request);
+  _socket->write(_protocol.serialize(response));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// ClientFilesModel
+///////////////////////////////////////////////////////////////////////////////
+
+ClientFilesModel::ClientFilesModel(Client *client, QObject *parent) :
+  QAbstractTableModel(parent),
+  _client(client)
+{
+  _columnHeaders.insert(FileNameColumn, tr("File name"));
+}
+
+int ClientFilesModel::columnCount(const QModelIndex &parent) const
+{
+  Q_UNUSED(parent)
+  return _columnHeaders.size();
+}
+
+QVariant ClientFilesModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+  switch (orientation) {
+    case Qt::Horizontal:
+      switch (role) {
+        case Qt::DisplayRole:
+          return _columnHeaders.value(section);
+      }
+      break;
+  }
+  return QVariant();
+}
+
+int ClientFilesModel::rowCount(const QModelIndex &parent) const
+{
+  Q_UNUSED(parent)
+  return _client->_files.size();
+}
+
+QVariant ClientFilesModel::data(const QModelIndex &index, int role) const
+{
+  if (!index.isValid() || index.row() >= _client->_files.size()) {
+    return QVariant();
+  }
+  switch (role) {
+    case Qt::DisplayRole:
+      switch (index.column()) {
+        case FileNameColumn:
+          return _client->_files.at(index.row())->path;
+      }
+      break;
+  }
+  return QVariant();
 }

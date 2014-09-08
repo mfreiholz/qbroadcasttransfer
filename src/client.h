@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QByteArray>
 #include <QHostAddress>
+#include <QAbstractTableModel>
 #include "protocol.h"
 class QTcpSocket;
 class QUdpSocket;
@@ -14,6 +15,7 @@ class Client : public QObject
 {
   Q_OBJECT
   friend class ClientServerConnectionHandler;
+  friend class ClientFilesModel;
 
 public:
   explicit Client(QObject *parent = 0);
@@ -67,6 +69,7 @@ private:
   void processRequest(TCP::Request &request);
   void processKeepAlive(TCP::Request &request, QDataStream &in);
   void processFileRegister(TCP::Request &request, QDataStream &in);
+  void processFileUnregister(TCP::Request &request, QDataStream &in);
 
 signals:
   void disconnected();
@@ -77,5 +80,29 @@ private:
   TCP::ProtocolHandler _protocol;
   int _keepAliveTimerId;
 };
+
+
+class ClientFilesModel : public QAbstractTableModel
+{
+  Q_OBJECT
+
+public:
+  enum Columns {
+    FileNameColumn
+  };
+
+  explicit ClientFilesModel(Client *client, QObject *parent = 0);
+
+  virtual int columnCount(const QModelIndex &parent = QModelIndex()) const;
+  virtual QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const;
+
+  virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
+  virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+
+private:
+  Client *_client;
+  QHash<int, QString> _columnHeaders;
+};
+
 
 #endif // CLIENT_H
