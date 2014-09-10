@@ -88,7 +88,9 @@ class ClientFilesModel : public QAbstractTableModel
 
 public:
   enum Columns {
-    FileNameColumn
+    FileIdColumn,
+    FileNameColumn,
+    FileSizeColumn
   };
 
   explicit ClientFilesModel(Client *client, QObject *parent = 0);
@@ -98,6 +100,9 @@ public:
 
   virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
   virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
+
+private slots:
+  void onClientFilesChanged();
 
 private:
   Client *_client;

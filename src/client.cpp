@@ -235,7 +235,10 @@ ClientFilesModel::ClientFilesModel(Client *client, QObject *parent) :
   QAbstractTableModel(parent),
   _client(client)
 {
-  _columnHeaders.insert(FileNameColumn, tr("File name"));
+  _columnHeaders.insert(FileIdColumn, tr("Id"));
+  _columnHeaders.insert(FileNameColumn, tr("Name"));
+  _columnHeaders.insert(FileSizeColumn, tr("Size"));
+  connect(_client, SIGNAL(filesChanged()), SLOT(onClientFilesChanged()));
 }
 
 int ClientFilesModel::columnCount(const QModelIndex &parent) const
@@ -271,10 +274,20 @@ QVariant ClientFilesModel::data(const QModelIndex &index, int role) const
   switch (role) {
     case Qt::DisplayRole:
       switch (index.column()) {
+        case FileIdColumn:
+          return _client->_files.at(index.row())->id;
         case FileNameColumn:
           return _client->_files.at(index.row())->path;
+        case FileSizeColumn:
+          return _client->_files.at(index.row())->size;
       }
       break;
   }
   return QVariant();
+}
+
+void ClientFilesModel::onClientFilesChanged()
+{
+  beginResetModel();
+  endResetModel();
 }

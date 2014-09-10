@@ -10,6 +10,7 @@ ClientControllerWidget::ClientControllerWidget(Client *client, QWidget *parent, 
 {
   _ui.setupUi(this);
   _ui.savePath->setObjectName(QDir::homePath());
+  _ui.filesView->setModel(new ClientFilesModel(_client, this));
   connect(_ui.savePathButton, SIGNAL(clicked()), SLOT(onSavePathButtonClicked()));
   connect(_client, SIGNAL(serverConnected()), SLOT(updateGuiState()));
   connect(_client, SIGNAL(serverDisconnected()), SLOT(updateGuiState()));
