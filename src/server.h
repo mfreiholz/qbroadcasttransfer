@@ -103,15 +103,16 @@ class ServerFileBroadcastTask : public QObject, public QRunnable
 {
   Q_OBJECT
 
-signals:
-  void bytesWritten(quint32 fileId, quint64 writtenBytes, quint64 totalBytes);
-
 public:
-  ServerFileBroadcastTask(const FileInfo &info, QObject *parent = 0);
+  ServerFileBroadcastTask(FileInfoPtr info, QObject *parent = 0);
   virtual void run();
 
+signals:
+  void bytesWritten(FileInfo::fileid_t fileId, quint64 writtenBytes, quint64 totalBytes);
+  void finished();
+
 private:
-  FileInfo _info;
+  FileInfoPtr _info;
 };
 
 

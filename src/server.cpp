@@ -27,6 +27,8 @@ Server::Server(QObject *parent) :
 
   _dataSocket = new QUdpSocket(this);
   connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
+
+  _pool.setMaxThreadCount(1);
 }
 
 Server::~Server()
@@ -82,6 +84,7 @@ void Server::registerFile(const QString &filePath)
   if (!fileInfo->fromFile(filePath)) {
     return;
   }
+  fileInfo->id = FileInfo::nextUniqueId();
   _files.append(fileInfo);
 
   foreach (auto conn, _connections) {
@@ -295,10 +298,12 @@ void ServerClientConnectionHandler::processRequest(TCP::Request &request)
 
 void ServerClientConnectionHandler::processResponse(TCP::Request &response)
 {
+  Q_UNUSED(response)
 }
 
 void ServerClientConnectionHandler::processKeepAlive(TCP::Request &request, QDataStream &in)
 {
+  Q_UNUSED(in)
   TCP::Request response;
   response.initResponseByRequest(request);
   _socket->write(_protocol.serialize(response));
@@ -308,7 +313,7 @@ void ServerClientConnectionHandler::processKeepAlive(TCP::Request &request, QDat
 // ServerFileBroadcastTask
 ///////////////////////////////////////////////////////////////////////////////
 
-ServerFileBroadcastTask::ServerFileBroadcastTask(const FileInfo &info, QObject *parent) :
+ServerFileBroadcastTask::ServerFileBroadcastTask(FileInfoPtr info, QObject *parent) :
   QObject(parent),
   QRunnable(),
   _info(info)
@@ -318,21 +323,28 @@ ServerFileBroadcastTask::ServerFileBroadcastTask(const FileInfo &info, QObject *
 void ServerFileBroadcastTask::run()
 {
   QUdpSocket socket;
-  QFile f(_info.path);
+  QFile f(_info->path);
   if (!f.open(QIODevice::ReadOnly)) {
     return;
   }
   quint32 index = 0;
   while (!f.atEnd()) {
+    const QByteArray fdata = f.read(400);
+    if (fdata.isEmpty()) {
+      break;
+    }
     QByteArray datagram;
     QDataStream out(&datagram, QIODevice::WriteOnly);
-    out << _info.id;
+    out << _info->id;
     out << index;
-    out << f.read(400);
-    if (socket.writeDatagram(datagram, QHostAddress::Broadcast, UDPPORTCLIENT) > 0)
-      emit bytesWritten(_info.id, index * 400, _info.size);
+    out << fdata;
+    if (socket.writeDatagram(datagram, QHostAddress::Broadcast, UDPPORTCLIENT) > 0) {
+      emit bytesWritten(_info->id, f.pos(), _info->size);
+    }
+    ++index;
   }
   f.close();
+  emit finished();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

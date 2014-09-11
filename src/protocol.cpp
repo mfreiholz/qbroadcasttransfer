@@ -1,5 +1,6 @@
 #include <math.h>
 #include <QFileInfo>
+#include <QAtomicInt>
 #include "protocol.h"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -110,6 +111,12 @@ bool FileInfo::fromFile(const QString &filePath)
   this->partSize = 400;
   this->partCount = ceil((double)fi.size() / 400);
   return true;
+}
+
+FileInfo::fileid_t FileInfo::nextUniqueId()
+{
+  static QAtomicInt __nextId = 0;
+  return __nextId++;
 }
 
 QDataStream& operator<<(QDataStream &out, const FileInfo &info)

@@ -100,7 +100,9 @@ public:
 
   FileInfo() : id(0), size(0), partSize(0), partCount(0) {}
   bool fromFile(const QString &filePath);
-  quint32 id;
+  static fileid_t nextUniqueId();
+
+  fileid_t id;
   QString path;
   quint64 size;
   quint32 partSize;
