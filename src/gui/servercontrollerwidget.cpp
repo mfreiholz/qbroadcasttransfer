@@ -14,6 +14,7 @@ ServerControllerWidget::ServerControllerWidget(Server *server, QWidget *parent) 
   connect(_ui.searchClientsButton, SIGNAL(clicked()), SLOT(searchForClients()));
   connect(_ui.disconnectClientsButton, SIGNAL(clicked()), SLOT(disconnectClients()));
   connect(_ui.addFilesButton, SIGNAL(clicked()), SLOT(onAddFilesButtonClicked()));
+  connect(_ui.startTransferButton, SIGNAL(clicked()), SLOT(startTransfer()));
 
   QTimer::singleShot(1000, this, SLOT(searchForClients()));
 }
@@ -32,6 +33,11 @@ void ServerControllerWidget::searchForClients()
 void ServerControllerWidget::disconnectClients()
 {
   _server->disconnectFromClients();
+}
+
+void ServerControllerWidget::startTransfer()
+{
+  _server->broadcastFiles();
 }
 
 void ServerControllerWidget::onAddFilesButtonClicked()

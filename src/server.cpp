@@ -118,10 +118,10 @@ void Server::broadcastHello()
 
 void Server::broadcastFiles()
 {
-  //foreach (const FileInfo &info, _files) {
-  //  ServerFileBroadcastTask *task = new ServerFileBroadcastTask(info, this);
-  //  _pool.start(task);
-  //}
+  foreach (FileInfoPtr info, _files) {
+    ServerFileBroadcastTask *task = new ServerFileBroadcastTask(info, 0);
+    _pool.start(task);
+  }
 }
 
 void Server::onClientConnected()
@@ -333,11 +333,18 @@ void ServerFileBroadcastTask::run()
     if (fdata.isEmpty()) {
       break;
     }
+
+    FileData fd;
+    fd.id = _info->id;
+    fd.index = index;
+    fd.data = fdata;
+
     QByteArray datagram;
     QDataStream out(&datagram, QIODevice::WriteOnly);
-    out << _info->id;
-    out << index;
-    out << fdata;
+    out << DGMAGICBIT;
+    out << DGDATA;
+    out << fd;
+
     if (socket.writeDatagram(datagram, QHostAddress::Broadcast, UDPPORTCLIENT) > 0) {
       emit bytesWritten(_info->id, f.pos(), _info->size);
     }

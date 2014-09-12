@@ -116,7 +116,7 @@ QDataStream& operator>>(QDataStream &in, FileInfo &info);
 class FileData
 {
 public:
-  quint32 id;
+  FileInfo::fileid_t id;
   quint32 index;
   QByteArray data;
 };

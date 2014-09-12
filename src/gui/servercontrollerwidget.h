@@ -19,6 +19,7 @@ public:
 public slots:
   void searchForClients();
   void disconnectClients();
+  void startTransfer();
 
 private slots:
   void onAddFilesButtonClicked();

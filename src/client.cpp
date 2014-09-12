@@ -78,12 +78,9 @@ void Client::onReadPendingDatagram()
         }
         break;
       case DGDATA:
-        quint32 fileId;
-        in >> fileId;
-        quint64 fileDataOffset;
-        in >> fileDataOffset;
-        QByteArray fileData;
-        in >> fileData;
+        FileData fd;
+        in >> fd;
+        qDebug() << QString("Received file data (id=%1; index=%2; size=%3)").arg(fd.id).arg(fd.index).arg(fd.data.size());
         break;
     }
   }
