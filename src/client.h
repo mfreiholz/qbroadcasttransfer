@@ -5,15 +5,15 @@
 #include <QByteArray>
 #include <QHostAddress>
 #include <QAbstractTableModel>
+#include <QUdpSocket>
 #include "protocol.h"
 class QTcpSocket;
-class QUdpSocket;
-class ClientServerConnectionHandler;
 
 
 class Client : public QObject
 {
   Q_OBJECT
+  friend class ClientUdpSocket;
   friend class ClientServerConnectionHandler;
   friend class ClientFilesModel;
 
@@ -27,9 +27,6 @@ public:
 public slots:
   void connectToServer(const QHostAddress &address, quint16 port);
 
-private slots:
-  void onReadPendingDatagram();
-
 signals:
   void serverBroadcastReceived(const QHostAddress &address, quint16 port);
   void serverConnected();
@@ -42,6 +39,24 @@ private:
 
   // Files
   QList<FileInfoPtr> _files;
+  QHash<FileInfo::fileid_t, FileInfoPtr> _files2id;
+};
+
+
+class ClientUdpSocket : public QUdpSocket
+{
+  Q_OBJECT
+
+public:
+  explicit ClientUdpSocket(Client *client, QObject *parent);
+
+private slots:
+  void onReadPendingDatagram();
+  void processHello(QDataStream &in, const QHostAddress &sender, quint16 senderPort);
+  void processFileData(QDataStream &in, const QHostAddress &sender, quint16 senderPort);
+
+private:
+  Client *_client;
 };
 
 

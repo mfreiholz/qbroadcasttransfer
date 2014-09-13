@@ -15,8 +15,7 @@ Client::Client(QObject *parent) :
   connect(_serverConnection->getSocket(), SIGNAL(connected()), SIGNAL(serverConnected()));
   connect(_serverConnection->getSocket(), SIGNAL(disconnected()), SIGNAL(serverDisconnected()));
 
-  _dataSocket = new QUdpSocket(this);
-  connect(_dataSocket, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
+  _dataSocket = new ClientUdpSocket(this, this);
 }
 
 Client::~Client()
@@ -48,42 +47,73 @@ void Client::connectToServer(const QHostAddress &address, quint16 port)
   _serverConnection->connectToHost(address, port);
 }
 
-void Client::onReadPendingDatagram()
+///////////////////////////////////////////////////////////////////////////////
+// ClientUdpSocket
+///////////////////////////////////////////////////////////////////////////////
+
+ClientUdpSocket::ClientUdpSocket(Client *client, QObject *parent) :
+  QUdpSocket(parent),
+  _client(client)
 {
-  while (_dataSocket->hasPendingDatagrams()) {
+  connect(this, SIGNAL(readyRead()), SLOT(onReadPendingDatagram()));
+}
+
+void ClientUdpSocket::onReadPendingDatagram()
+{
+  while (hasPendingDatagrams()) {
     QByteArray datagram;
     QHostAddress sender;
     quint16 senderPort;
-    datagram.resize(_dataSocket->pendingDatagramSize());
-    _dataSocket->readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
+    datagram.resize(pendingDatagramSize());
+    readDatagram(datagram.data(), datagram.size(), &sender, &senderPort);
 
-    // Process datagram.
     QDataStream in(datagram);
 
     quint8 magic = 0;
     in >> magic;
-    if (magic != DGMAGICBIT)
+    if (magic != DGMAGICBIT) {
+      qDebug() << QString("Datagram with invalid magic byte (size=%1)").arg(datagram.size());
       continue;
+    }
 
     quint8 type;
     in >> type;
-
     switch (type) {
       case DGHELLO:
-        if (_serverConnection->getSocket()->state() == QAbstractSocket::UnconnectedState) {
-          quint16 tcpPort;
-          in >> tcpPort;
-          connectToServer(sender, tcpPort);
-          emit serverBroadcastReceived(sender, tcpPort);
-        }
+        processHello(in, sender, senderPort);
         break;
       case DGDATA:
-        FileData fd;
-        in >> fd;
-        qDebug() << QString("Received file data (id=%1; index=%2; size=%3)").arg(fd.id).arg(fd.index).arg(fd.data.size());
+        processFileData(in, sender, senderPort);
+        break;
+      default:
+        qDebug() << QString("Unknown datagram type");
         break;
     }
   }
+}
+
+void ClientUdpSocket::processHello(QDataStream &in, const QHostAddress &sender, quint16 senderPort)
+{
+  quint16 serverPort;
+  in >> serverPort;
+  if (_client->_serverConnection->getSocket()->state() == QAbstractSocket::UnconnectedState) {
+    _client->connectToServer(sender, serverPort);
+    emit _client->serverBroadcastReceived(sender, serverPort);
+  }
+}
+
+void ClientUdpSocket::processFileData(QDataStream &in, const QHostAddress &sender, quint16 senderPort)
+{
+  FileData fd;
+  in >> fd;
+  
+  FileInfoPtr info = _client->_files2id.value(fd.id);
+  if (!info) {
+    qDebug() << QString("Received file data with unknown file-id (id=%1)").arg(fd.id);
+    return;
+  }
+
+  qDebug() << QString("Received file data (id=%1; index=%2; size=%3)").arg(fd.id).arg(fd.index).arg(fd.data.size());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -194,6 +224,7 @@ void ClientServerConnectionHandler::processFileRegister(TCP::Request &request, Q
   in >> *info.data();
 
   _client->_files.append(info);
+  _client->_files2id.insert(info->id, info);
   emit _client->filesChanged();
 
   qDebug() << QString("Registered new file on client: %1 %2").arg(info->id).arg(info->path);
@@ -212,6 +243,7 @@ void ClientServerConnectionHandler::processFileUnregister(TCP::Request &request,
     FileInfoPtr fi = _client->_files.at(i);
     if (fi->id == id) {
       _client->_files.removeAt(i);
+      _client->_files2id.remove(id);
       break;
     }
   }
