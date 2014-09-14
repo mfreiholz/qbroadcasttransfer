@@ -7,7 +7,8 @@ SOURCES += \
     src/protocol.cpp \
     src/client.cpp \
     src/gui/servercontrollerwidget.cpp \
-    src/gui/clientcontrollerwidget.cpp
+    src/gui/clientcontrollerwidget.cpp \
+    src/filedatabuffer.cpp
 
 HEADERS += \
     src/server.h \
@@ -15,7 +16,8 @@ HEADERS += \
     src/protocol.h \
     src/client.h \
     src/gui/servercontrollerwidget.h \
-    src/gui/clientcontrollerwidget.h
+    src/gui/clientcontrollerwidget.h \
+    src/filedatabuffer.h
 
 win32 {
     LIBS += Ws2_32.lib

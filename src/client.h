@@ -40,6 +40,9 @@ private:
   // Files
   QList<FileInfoPtr> _files;
   QHash<FileInfo::fileid_t, FileInfoPtr> _files2id;
+
+  // Settings
+  QString _savePath;
 };
 
 

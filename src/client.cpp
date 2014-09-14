@@ -106,7 +106,7 @@ void ClientUdpSocket::processFileData(QDataStream &in, const QHostAddress &sende
 {
   FileData fd;
   in >> fd;
-  
+
   FileInfoPtr info = _client->_files2id.value(fd.id);
   if (!info) {
     qDebug() << QString("Received file data with unknown file-id (id=%1)").arg(fd.id);
@@ -145,7 +145,7 @@ void ClientServerConnectionHandler::connectToHost(const QHostAddress &address, q
 
 void ClientServerConnectionHandler::sendKeepAlive()
 {
-  qDebug() << "Send /keepalive to server.";
+  qDebug() << QString("Send /keepalive.");
 
   QByteArray body;
   QDataStream out(&body, QIODevice::WriteOnly);
